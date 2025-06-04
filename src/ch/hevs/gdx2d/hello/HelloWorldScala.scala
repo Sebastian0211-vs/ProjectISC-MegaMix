@@ -24,7 +24,11 @@ object SimpleRhythmGame {
 }
 
 object Assets {
-  val NoteBitmap: BitmapImage = new BitmapImage("data/Assets/Notes/noteOutline.png")
+  var NoteBitmap: BitmapImage = null
+
+  def init() ={
+    NoteBitmap = new BitmapImage("data/Assets/Notes/noteOutline.png")
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,7 +153,7 @@ class NoteEntity(n: Note, colour: Color) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  GAME APP – all logic in onGraphicRender
 // ─────────────────────────────────────────────────────────────────────────────
-class RhythmGameApp extends PortableApplication(false) {
+class RhythmGameApp extends PortableApplication(1920, 1080) {
   // console log cadence
   private val LOG_EVERY_N_FRAMES = 120
 
@@ -167,13 +171,15 @@ class RhythmGameApp extends PortableApplication(false) {
   override def onInit(): Unit = {
     setTitle("ISCProject - MegaMix")
 
+    Assets.init()
+
     cx = Gdx.graphics.getWidth / 2f
     cy = Gdx.graphics.getHeight / 2f
 
 
-    Gdx.graphics.setWindowedMode(1920, 1080)
+    //Gdx.graphics.setWindowedMode(1920, 1080)
 
-    upcoming = NoteLoader.load("data/song.mid", cx, cy)
+    upcoming = NoteLoader.load("data/song.mid",  cx, cy)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Teto Territory.mp3"))
