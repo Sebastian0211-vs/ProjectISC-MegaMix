@@ -25,9 +25,11 @@ object SimpleRhythmGame {
 
 object Assets {
   var NoteBitmap: BitmapImage = null
+  var BackgroundBitMap: BitmapImage = null
 
   def init() ={
     NoteBitmap = new BitmapImage("data/Assets/Notes/noteOutline.png")
+    BackgroundBitMap = new BitmapImage("data/Assets/Background/teto.jpeg")
   }
 }
 
@@ -48,8 +50,7 @@ case class Note(
 // ─────────────────────────────────────────────────────────────────────────────
 object NoteLoader {
   private val DefaultTPQ  = 480
-  val OuterChartRadius: Float  = 500f
-  val ChartRadius: Float = 100 // spawn radius
+
   private val DrumChannel = 9 // ignore GM drums by default
 
   def load(midiPath: String, cx: Float, cy: Float): Vector[Note] = {
@@ -58,7 +59,26 @@ object NoteLoader {
 
 
     // ── tempo map ──
-    val tempo = mutable.TreeMap[Long, Float](0L -> 500000f) // default 120 BPM
+    def extractBPM(midiPath: String): Option[Float] = {
+      val seq = MidiSystem.getSequence(new java.io.File(midiPath))
+      for {
+        track <- seq.getTracks
+        i <- 0 until track.size()
+        msg = track.get(i).getMessage
+        if msg.isInstanceOf[MetaMessage]
+        meta = msg.asInstanceOf[MetaMessage]
+        if meta.getType == 0x51
+      } {
+        val d = meta.getData
+        val mpq = ((d(0) & 0xff) << 16) | ((d(1) & 0xff) << 8) | (d(2) & 0xff)
+        return Some(60_000_000f / mpq)
+      }
+      None
+    }
+
+    val BPM = extractBPM(midiPath).getOrElse(120f) // BPM par défaut si non trouvé
+    println("[NoteLoader] BPM: " + BPM)
+    val tempo = mutable.TreeMap[Long, Float](0L -> (60_000_000f / BPM)) // MPQ par défaut
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
@@ -86,9 +106,9 @@ object NoteLoader {
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
-          case sm: ShortMessage if sm.getChannel == 1 =>
+          case sm: ShortMessage =>
             val pitch = sm.getData1
-            val lane  = pitch % 4
+            val lane  = pitch % 5
             val angle = (((pitch / 4) % 12) * 30).toFloat
             sm.getCommand match {
               case ShortMessage.NOTE_ON if sm.getData2 > 0 =>
@@ -96,12 +116,18 @@ object NoteLoader {
               case ShortMessage.NOTE_OFF | ShortMessage.NOTE_ON =>
                 val start = active.remove(pitch).getOrElse(trk.get(i).getTick)
                 val ms    = tickToMs(start)
+
+                var OuterChartRadius: Float = 1000f
+                var ChartRadius: Float = 100 // spawn radius
+
                 // Spawn sur le cercle (extérieur)
                 val spawnAngle = angle
                 val sx = cx + math.cos(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
                 val sy = cy + math.sin(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
                 // End point aléatoire sur le cercle
-                val endAngle = (math.random() * 360).toFloat
+
+
+                val endAngle = ((math.random() * 180)-90 + angle).toFloat
                 var destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * ChartRadius
                 var destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * ChartRadius
 
@@ -116,6 +142,7 @@ object NoteLoader {
     }
 
     out.result().sortBy(_.startMs)
+    //get on
   }
 
 }
@@ -138,12 +165,16 @@ class NoteEntity(n: Note, colour: Color) {
 
   def draw(g: GdxGraphics, now: Long): Unit = {
     val (x, y) = pos(now)
-    val ghost  = new Color(colour.r, colour.g, colour.b, 0.01f)
+    val distance = math.sqrt(math.pow(n.destX - x, 2) + math.pow(n.destY - y, 2)).toFloat
+    val transparency = math.min(1f, 0.5f - distance / 1000f)
+    println(s"[NoteEntity] distance: $distance")
+    val ghost  = new Color(colour.r, colour.g, colour.b, transparency)
     // Ligne du point de spawn à la destination
     g.drawLine(n.spawnX, n.spawnY, n.destX, n.destY, ghost)
-    g.drawFilledCircle(x, y, 15, colour)
+    g.drawFilledCircle(x, y, 30, colour)
 
-    g.drawTransformedPicture(n.destX, n.destY, 30, 0.05.toFloat, Assets.NoteBitmap)
+    g.drawTransformedPicture(n.destX, n.destY, 30, 0.1f, Assets.NoteBitmap)
+    g.drawFilledCircle(n.destX, n.destY, 30, ghost)
   }
 
   val lane: Int   = n.lane
@@ -178,12 +209,30 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
 
     //Gdx.graphics.setWindowedMode(1920, 1080)
+    var midiPath = "data/bad apple.mid"
 
-    upcoming = NoteLoader.load("data/song.mid",  cx, cy)
+    upcoming = NoteLoader.load(midiPath,  cx, cy)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
-    music = Gdx.audio.newMusic(Gdx.files.internal("data/Teto Territory.mp3"))
-    music.play()
+    music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
+
+    val sequencer = MidiSystem.getSequencer()
+    sequencer.open()
+    sequencer.setSequence(Gdx.files.internal(midiPath).read())
+    // Try to set volume for each MIDI channel
+    val synth = MidiSystem.getSynthesizer
+    synth.open()
+    val channels = synth.getChannels
+
+    // Set volume on all channels (controller 7 is main volume)
+    for (channel <- channels if channel != null) {
+      channel.controlChange(7, 127) // 127 is the max volume
+    }
+
+    // Start playback
+    sequencer.start()
+    //music.play()
+
     t0 = System.currentTimeMillis()
   }
 
@@ -196,18 +245,23 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     frame += 1
     val now = nowMs
 
-    // --- spawn notes ---
-    val lead = 1200L
-    var spawned = 0
-    while (upcoming.nonEmpty && upcoming.head.startMs - lead <= now) {
-      val n = upcoming.head; upcoming = upcoming.tail
+  // --- spawn notes ---
+  // On ne garde qu'une note par lane et par ms
+  upcoming = upcoming
+    .groupBy(n => (n.lane, n.startMs))
+    .values
+    .map(_.head)
+    .toVector
+    .sortBy(_.startMs)
 
-//      val randomXOffset = math.random().toFloat * 100 - 50 // random offset for visual variety
-//      val randomYOffset = math.random().toFloat * 100 - 50 // random offset for visual variety
-      live += new NoteEntity(n, palette(n.lane))
-      spawned += 1
-    }
-    if (spawned > 0) println(s"[Spawn] $spawned notes (queue left: ${upcoming.size}) @ ${now} ms")
+  val lead = 1200L
+  var spawned = 0
+  while (upcoming.nonEmpty && upcoming.head.startMs - lead <= now) {
+    val n = upcoming.head; upcoming = upcoming.tail
+    live += new NoteEntity(n, palette(n.lane))
+    spawned += 1
+  }
+  if (spawned > 0) println(s"[Spawn] $spawned notes (queue left: ${upcoming.size}) @ ${now} ms")
 
     // --- input + hit detection ---
     pollInput().foreach { l =>
@@ -223,6 +277,7 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
     // --- rendering ---
     g.clear(Color.DARK_GRAY)
+    //g.drawTransformedPicture(cx,cy,1 , 2f, Assets.BackgroundBitMap)
 
     live.foreach(_.draw(g, now))
 
@@ -239,6 +294,7 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     case 0 => Color.PINK
     case 1 => Color.GOLD
     case 2 => Color.BLUE
+    case 3 => Color.GREEN
     case _ => Color.FIREBRICK
   }
 }
