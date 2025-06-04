@@ -91,8 +91,11 @@ object NoteLoader {
                 val sy = cy + math.sin(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
                 // End point aléatoire sur le cercle
                 val endAngle = (math.random() * 360).toFloat
-                val destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * ChartRadius
-                val destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * ChartRadius
+                var destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * ChartRadius
+                var destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * ChartRadius
+
+                destX = destX + (math.random().toFloat * 100 - 50) // random offset for visual variety
+                destY = destY + (math.random().toFloat * 100 - 50) // random offset for visual variety
                 out += Note(ms, lane, angle, sx, sy, destX, destY)
               case _ =>
             }
@@ -124,10 +127,11 @@ class NoteEntity(n: Note, colour: Color) {
 
   def draw(g: GdxGraphics, now: Long): Unit = {
     val (x, y) = pos(now)
-    val ghost  = new Color(colour.r, colour.g, colour.b, 0.25f)
+    val ghost  = new Color(colour.r, colour.g, colour.b, 0.01f)
     // Ligne du point de spawn à la destination
     g.drawLine(n.spawnX, n.spawnY, n.destX, n.destY, ghost)
     g.drawFilledCircle(x, y, 15, colour)
+    g.drawFilledBorderedCircle(n.destX,n.destY, 15, ghost, colour)
   }
 
   val lane: Int   = n.lane
@@ -205,7 +209,6 @@ class RhythmGameApp extends PortableApplication(false) {
 
     // --- rendering ---
     g.clear(Color.DARK_GRAY)
-    g.drawFilledBorderedCircle(cx,cy,100,Color.WHITE,Color.PINK)
 
     live.foreach(_.draw(g, now))
 
@@ -219,9 +222,9 @@ class RhythmGameApp extends PortableApplication(false) {
       .collect { case (k, l) if Gdx.input.isKeyJustPressed(k) => l }
 
   private def palette(l: Int): Color = l match {
-    case 0 => new Color(0,121,255,1)
-    case 1 => new Color(0, 223, 162,1)
-    case 2 => new Color(246,250,112,1)
-    case _ => new Color(255,0,96,1)
+    case 0 => Color.PINK
+    case 1 => Color.GOLD
+    case 2 => Color.BLUE
+    case _ => Color.FIREBRICK
   }
 }
