@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 
 import javax.sound.midi._
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Rhythm-game prototype – single-loop architecture.
@@ -52,13 +53,14 @@ object NoteLoader {
   val ChartRadius: Float = 100 // spawn radius
   private val DrumChannel = 9 // ignore GM drums by default
 
-  def load(midiPath: String, cx: Float, cy: Float): Vector[Note] = {
+  def load(midiPath: String, cx: Float, cy: Float,channel: Int): Vector[Note] = {
     val seq = MidiSystem.getSequence(Gdx.files.internal(midiPath).file())
     val tpq = Option(seq.getResolution).filter(_ > 0).getOrElse(DefaultTPQ).toFloat
 
 
     // ── tempo map ──
-    val tempo = mutable.TreeMap[Long, Float](0L -> 500000f) // default 120 BPM
+    var BPM = 171f
+    val tempo = mutable.TreeMap[Long, Float](0L -> 60_000_000/BPM) // default 120 BPM
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
@@ -86,7 +88,7 @@ object NoteLoader {
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
-          case sm: ShortMessage if sm.getChannel == 1 =>
+          case sm: ShortMessage if sm.getChannel == channel =>
             val pitch = sm.getData1
             val lane  = pitch % 4
             val angle = (((pitch / 4) % 12) * 30).toFloat
@@ -116,6 +118,14 @@ object NoteLoader {
     }
 
     out.result().sortBy(_.startMs)
+    var same: ArrayBuffer[Note] = new ArrayBuffer[Note]
+    for (i <- 1 to out.result.length){
+      if(out.result()(i).startMs == out.result()(i-1).startMs){
+        same.append(out.result()(i)); same.append(out.result()(i-1))
+
+      }
+
+    }
   }
 
 }
@@ -179,7 +189,7 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
     //Gdx.graphics.setWindowedMode(1920, 1080)
 
-    upcoming = NoteLoader.load("data/song.mid",  cx, cy)
+    upcoming = NoteLoader.load("data/song.mid",  cx, cy, 0)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Teto Territory.mp3"))
