@@ -52,8 +52,8 @@ case class Note(
 object NoteLoader {
   private val DefaultTPQ  = 480
   val OuterChartRadius: Float  = 1000f
-  val ChartRadius: Float = 300 // spawn radius
-  val secondRadius: Float = 600 // second chance radius
+  val ChartRadius: Float = 100 // spawn radius
+  var secondRadius: Float = 300 // second chance radius
   var occupied:ArrayBuffer[(Int, Int)] = new ArrayBuffer[(Int, Int)]
   private val DrumChannel = 9 // ignore GM drums by default
 
@@ -107,6 +107,16 @@ object NoteLoader {
     val active = mutable.Map[Int, Long]()
     val out    = Vector.newBuilder[Note]
 
+    // Remplacez la boucle de création de notes dans NoteLoader.load par ceci :
+    val groupSize = 6
+    val quarterCircle = 90 // degrés
+    var noteCount = 0
+
+    var interX = cx + math.cos(Math.toRadians(0)).toFloat * secondRadius
+    var interY = cy + math.sin(Math.toRadians(0)).toFloat * secondRadius
+
+    var currentgroup: ArrayBuffer[(Int, Int)] = new ArrayBuffer[(Int, Int)]
+
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
@@ -120,39 +130,54 @@ object NoteLoader {
               case ShortMessage.NOTE_OFF | ShortMessage.NOTE_ON =>
                 val start = active.remove(pitch).getOrElse(trk.get(i).getTick)
                 val ms    = tickToMs(start)
-                // Spawn sur le cercle (extérieur)
-                val spawnAngle = angle
-                val sx = cx + math.cos(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
-                val sy = cy + math.sin(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
-                // End point aléatoire sur le cercle
-                val endAngle = ((math.random() * 180) -90 + angle).toFloat
-                var destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * ChartRadius
-                var destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * ChartRadius
-
-                destX = destX + (math.random().toFloat * 100 - 50) // random offset for visual variety
-                destY = destY + (math.random().toFloat * 100 - 50) // random offset for visual variety
+                // Calcul du groupe et de l'angle dans le quart de cercle
+                val groupIdx = noteCount / groupSize
+                val idxInGroup = noteCount % groupSize
+                val startAngle = groupIdx * quarterCircle
+                val angleStep = quarterCircle / (groupSize - 1)
+                val destAngle = startAngle + idxInGroup * angleStep // 1.5 pour étendre l'angle de destination
 
 
-                var key = ((destX / 45).toInt, (destY / 45).toInt)
-                for(i <- 0 to 20) {
-                  if (occupied.contains(key)) {
-                    val dx = (math.random().toFloat * (90+2*i) - 30-i)
-                    val dy = (math.random().toFloat * (90+2*i)- 30+i)
-                    destX += dx
-                    destY += dy
-                    //                  destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * secondRadius
-                    //                  destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * secondRadius
-                  }
-                  key = ((destX / 45).toInt, (destY / 45).toInt)
+                // Point de spawn (extérieur)
+                val sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * OuterChartRadius
+                val sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * OuterChartRadius
+                // Destination sur le quart de cercle intérieur
 
+                if(idxInGroup==0){
+                  interX = cx + math.cos(math.random()*2*math.Pi).toFloat * ChartRadius
+                  interY = cy + math.sin(math.random()*2*math.Pi).toFloat * ChartRadius
 
+                  occupied++=currentgroup
+                  currentgroup.clear()
                 }
-                occupied.addOne(key)
-                if (occupied.length > 40){
+                var destX = interX + math.cos(Math.toRadians(destAngle)).toFloat * secondRadius
+                var destY = interY + math.sin(Math.toRadians(destAngle)).toFloat * secondRadius
+
+
+                val laneOffset = 120
+                var key = ((destX / laneOffset).toInt, (destY / laneOffset).toInt)
+                for(i <- 0 to 10) {
+                  if (occupied.contains(key)) {
+                    interX = cx + math.cos(math.random()*2*math.Pi + i).toFloat * ChartRadius
+                    interY = cy + math.sin(math.random()*2*math.Pi + i).toFloat * ChartRadius
+                    occupied++=currentgroup
+                    currentgroup.clear()
+
+                    destX = interX + math.cos(Math.toRadians(destAngle)).toFloat * secondRadius
+                    destY = interY + math.sin(Math.toRadians(destAngle)).toFloat * secondRadius
+                    println(s"[NoteLoader] Collision detected at $key, retrying with new position $i")
+                  }
+                  key = ((destX / laneOffset).toInt, (destY / laneOffset).toInt)
+                }
+                currentgroup.addOne(key)
+                if (occupied.length > 30){
                   occupied = occupied.tail
                 }
 
+
+
                 out += Note(ms, lane, angle, sx, sy, destX, destY)
+                noteCount += 1
               case _ =>
             }
           case _ =>
@@ -227,9 +252,9 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
 
     //Gdx.graphics.setWindowedMode(1920, 1080)
-    var midiPath = "data/bad apple.mid"
+    var midiPath = "data/lumière.mid"
 
-    upcoming = NoteLoader.load(midiPath,  cx, cy)
+    upcoming = NoteLoader.load(midiPath,  cx, cy,1)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
