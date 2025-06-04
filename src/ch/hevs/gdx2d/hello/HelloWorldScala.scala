@@ -49,8 +49,10 @@ case class Note(
 // ─────────────────────────────────────────────────────────────────────────────
 object NoteLoader {
   private val DefaultTPQ  = 480
-  val OuterChartRadius: Float  = 500f
-  val ChartRadius: Float = 100 // spawn radius
+  val OuterChartRadius: Float  = 1000f
+  val ChartRadius: Float = 300 // spawn radius
+  val secondRadius: Float = 600 // second chance radius
+  var occupied:ArrayBuffer[(Int, Int)] = new ArrayBuffer[(Int, Int)]
   private val DrumChannel = 9 // ignore GM drums by default
 
   def load(midiPath: String, cx: Float, cy: Float,channel: Int): Vector[Note] = {
@@ -103,12 +105,33 @@ object NoteLoader {
                 val sx = cx + math.cos(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
                 val sy = cy + math.sin(Math.toRadians(spawnAngle)).toFloat * OuterChartRadius
                 // End point aléatoire sur le cercle
-                val endAngle = (math.random() * 360).toFloat
+                val endAngle = ((math.random() * 180) -90 + angle).toFloat
                 var destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * ChartRadius
                 var destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * ChartRadius
 
                 destX = destX + (math.random().toFloat * 100 - 50) // random offset for visual variety
                 destY = destY + (math.random().toFloat * 100 - 50) // random offset for visual variety
+
+
+                var key = ((destX / 45).toInt, (destY / 45).toInt)
+                for(i <- 0 to 20) {
+                  if (occupied.contains(key)) {
+                    val dx = (math.random().toFloat * (90+2*i) - 30-i)
+                    val dy = (math.random().toFloat * (90+2*i)- 30+i)
+                    destX += dx
+                    destY += dy
+                    //                  destX = cx + math.cos(Math.toRadians(endAngle)).toFloat * secondRadius
+                    //                  destY = cy + math.sin(Math.toRadians(endAngle)).toFloat * secondRadius
+                  }
+                  key = ((destX / 45).toInt, (destY / 45).toInt)
+
+
+                }
+                occupied.addOne(key)
+                if (occupied.length > 40){
+                  occupied = occupied.tail
+                }
+
                 out += Note(ms, lane, angle, sx, sy, destX, destY)
               case _ =>
             }
@@ -118,14 +141,6 @@ object NoteLoader {
     }
 
     out.result().sortBy(_.startMs)
-    var same: ArrayBuffer[Note] = new ArrayBuffer[Note]
-    for (i <- 1 to out.result.length){
-      if(out.result()(i).startMs == out.result()(i-1).startMs){
-        same.append(out.result()(i)); same.append(out.result()(i-1))
-
-      }
-
-    }
   }
 
 }
