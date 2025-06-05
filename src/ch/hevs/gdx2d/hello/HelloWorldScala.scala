@@ -85,7 +85,7 @@ object NoteLoader {
 
     // difficulty → max notes simultaneously visible
     val maxOnScreen = difficulty match {
-      case 1 => 3; case 2 => 5; case 3 => 7; case _ => 10
+      case 1 => 3; case 2 => 5; case 3 => 7; case 4 => 13; case _ => 20
     }
 
     /* tempo map */
@@ -157,8 +157,8 @@ object NoteLoader {
 
 
                 // Point de spawn (extérieur)
-                var sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
-                var sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+                var sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
+                var sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
                 // Destination sur le quart de cercle intérieur
 
                 if(idxInGroup==0){
@@ -179,11 +179,11 @@ object NoteLoader {
 
 
                 for(i <- 0 to 30) {
-                  if (occupied.forall { case (x, y) =>
+                  if (!(occupied.forall { case (x, y) =>
                     math.abs(x - key._1) >= 120 || math.abs(y - key._2) >= 120
-                  }) {}else {
-
+                  })) {
                     noteCount = noteCount + groupSize - idxInGroup
+
                     destAngle = (groupIdx + 1) * quarterCircle
 
                     if(i > 15){
@@ -193,9 +193,14 @@ object NoteLoader {
                     if(i > 10){
                       occupied = occupied.tail
                     }
+                    var bord: Int = 100
+                    if (key._1 < 0 + bord) interX += 100
+                    if (key._1 > 1900 - bord) interX -= 100
+                    if (key._2 < 0 + bord) interY += 100
+                    if (key._2 > 1080 - bord) interY -= 100
 
-                    sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
-                    sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+                    sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
+                    sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
 
                     interX += (math.random().toFloat * laneOffset - laneOffset / 2)
                     interY += (math.random().toFloat * laneOffset - laneOffset / 2)
@@ -210,7 +215,7 @@ object NoteLoader {
                   }
                 }
                 currentgroup.addOne(key)
-                while(occupied.length >= 20){
+                while(occupied.length >= math.min(20,maxOnScreen)){
                   occupied = occupied.tail
                 }
 
@@ -421,7 +426,7 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
       )
 
     if (Seq(Input.Keys.W, Input.Keys.A, Input.Keys.S, Input.Keys.D).exists(Gdx.input.isKeyJustPressed)) {
-      sfx.play()
+      sfx.play( 0.1f)
     }
 
     // ─── rendering ───
