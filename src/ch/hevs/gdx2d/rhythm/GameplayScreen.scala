@@ -1,32 +1,19 @@
-package ch.hevs.gdx2d.hello
-
+package ch.hevs.gdx2d.rhythm
 import ch.hevs.gdx2d.components.bitmaps.BitmapImage
 import ch.hevs.gdx2d.desktop.PortableApplication
+import ch.hevs.gdx2d.hello.RhythmApiDemo.baseUrl
 import ch.hevs.gdx2d.lib.GdxGraphics
 import com.badlogic.gdx.{Gdx, Input}
 import com.badlogic.gdx.audio.{Music, Sound}
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.g2d.BitmapFont
 
+import java.net.{HttpURLConnection, URL}
 import javax.sound.midi._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Using
 
-/**
- * Rhythm-game prototype – single-loop architecture.
- *
- * gdx2d only calls `onGraphicRender` each frame. We therefore run **all game
- * logic** (spawning, input, culling) inside that callback and keep no unused
- * overrides. Console logs print every few frames so you can monitor timing and
- * queue size while debugging.
- */
-object SimpleRhythmGame {
-  def main(args: Array[String]): Unit = new RhythmGameApp()
-}
 
-/** ---------------------------------------------------------------------------
- *  ASSETS
- *  -------------------------------------------------------------------------*/
 object Assets {
   var NoteBitmap       : BitmapImage = _
   var BackgroundBitMap : BitmapImage = _
@@ -288,10 +275,13 @@ class NoteEntity(n: Note, colour: Color) {
   val hitTime: Long = n.startMs
 }}
 
-/** ---------------------------------------------------------------------------
- *  GAME APP – single‑loop logic
- *  -------------------------------------------------------------------------*/
-class RhythmGameApp extends PortableApplication(1920, 1080) {
+
+
+class GameplayScreen(app: RhythmGame,
+                     user : String,
+                     token: String,
+                     path : String) extends Screen2d {
+
   // timings
   private val hitWindow      = 120      // "Good" ±ms
   private val perfectWindow  = 50
@@ -314,44 +304,54 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
   private var sfx:Sound = _
   private var comboUp:Sound = _
 
-  override def onInit(): Unit = {
-    setTitle("ISCProject – MegaMix")
-    Assets.init()
 
+
+
+  // ----------------------------------------------------------------------
+
+  private def pollInput(): Seq[Int] =
+    Seq(Input.Keys.D -> 0, Input.Keys.W -> 1, Input.Keys.A -> 2, Input.Keys.S -> 3)
+      .collect { case (k, l) if Gdx.input.isKeyJustPressed(k) => l }
+
+  private def palette(l: Int): Color = l match {
+    case 0 => new Color(0f/255, 121/255, 255f/255, 1f)
+    case 1 => new Color(0f/255, 223f/255, 162f/255, 1f)
+    case 2 => new Color(246f/255, 250f/255, 112f/255, 1f)
+    case _ => new Color(255f/255, 0f/255, 96f/255, 1f)
+  }
+
+  override def show(): Unit = {
     cx = Gdx.graphics.getWidth / 2f
     cy = Gdx.graphics.getHeight / 2f
 
+    sfx     = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/sfx.wav"))
+    comboUp  = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
-
-    sfx = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/sfx.wav"))
-    comboUp = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
-
-
-
-    val midiPath = "data/ANAMANAGUCHI - Miku.mid"
-    upcoming = NoteLoader.load(midiPath, cx, cy,1)
-    println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
+    val midiPath = s"data/tmp/$path"
+    upcoming = NoteLoader.load(midiPath, cx, cy, 1)
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
 
-    val sequencer = MidiSystem.getSequencer(); sequencer.open()
-    sequencer.setSequence(Gdx.files.internal(midiPath).read())
+    // — your existing Sequencer initialisation —
+    val seq = MidiSystem.getSequencer(); seq.open()
+    seq.setSequence(Gdx.files.internal(midiPath).read())
     val synth = MidiSystem.getSynthesizer; synth.open()
     for (ch <- synth.getChannels if ch != null) ch.controlChange(7, 127)
-    sequencer.start()
-    //music.play()
+    seq.start()
 
     t0 = System.currentTimeMillis()
   }
 
-  private def nowMs: Long = {
-    val p = (music.getPosition * 1000).toLong
-    if (p > 0) p else System.currentTimeMillis() - t0
-  }
+  private def nowMs: Long =
+    Option(music).map(m => (m.getPosition * 1000).toLong)
+      .filter(_ > 0).getOrElse(System.currentTimeMillis() - t0)
 
-  override def onGraphicRender(g: GdxGraphics): Unit = {
+  // ----------------------------------------------------------------------
+  override def render(g: GdxGraphics, dt: Float): Unit = {
     frame += 1
     val now = nowMs
+
+
 
     // ─── spawn upcoming ───
     upcoming = upcoming
@@ -424,6 +424,14 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
       sfx.play()
     }
 
+    if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+      postScore(token, path, score)
+      println(s"[Gameplay] Score posted: $score")
+      //mute the midi
+      Option(music).foreach(_.stop())
+      app.switchScreen(new MainMenuScreen(app))
+    }
+
     // ─── rendering ───
     g.clear(Color.DARK_GRAY)
 
@@ -443,19 +451,38 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     g.drawString(20, Gdx.graphics.getHeight - 120, s"Combo: x$combo ; Counter: $combocounter")
 
     g.drawFPS()
+
+
   }
 
-  private def pollInput(): Seq[Int] =
-    Seq(Input.Keys.D -> 0, Input.Keys.W -> 1, Input.Keys.A -> 2, Input.Keys.S -> 3)
-      .collect { case (k, l) if Gdx.input.isKeyJustPressed(k) => l }
 
-  private def palette(l: Int): Color = l match {
-    case 0 => new Color(0f/255, 121/255, 255f/255, 1f)
-    case 1 => new Color(0f/255, 223f/255, 162f/255, 1f)
-    case 2 => new Color(246f/255, 250f/255, 112f/255, 1f)
-    case _ => new Color(255f/255, 0f/255, 96f/255, 1f)
+
+
+  def postScore(str: String, str1: String, i: Int): Boolean = {
+    val json = s"""{"song": "$str1", "score": $i}"""
+    val url = new URL(s"$baseUrl/score")
+    val conn = url.openConnection().asInstanceOf[HttpURLConnection]
+    conn.setRequestMethod("POST")
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setRequestProperty("Authorization", s"$str")
+    conn.setDoOutput(true)
+
+    Using.resource(conn.getOutputStream) { os =>
+      os.write(json.getBytes("UTF-8"))
+    }
+
+    val responseCode = conn.getResponseCode
+    responseCode == 200
   }
 
+  override def dispose(): Unit = {
+    Option(music).foreach(_.dispose())
+    Option(sfx).foreach(_.dispose())
+    Option(comboUp).foreach(_.dispose())
+
+
+
+  }
 }
 
 

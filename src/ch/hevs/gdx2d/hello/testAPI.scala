@@ -46,24 +46,21 @@ object RhythmApiDemo {
     tokenRegex.findFirstMatchIn(response).map(_.group(1))
   }
 
-  def postScore(token: String, song: String, score: Int): Unit = {
-    val json = s"""{"song": "$song", "score": $score}"""
+  def postScore(str: String, str1: String, i: Int) = {
+    val json = s"""{"song": "$str1", "score": $i}"""
     val url = new URL(s"$baseUrl/score")
     val conn = url.openConnection().asInstanceOf[HttpURLConnection]
     conn.setRequestMethod("POST")
     conn.setRequestProperty("Content-Type", "application/json")
-    conn.setRequestProperty("Authorization", token)
+    conn.setRequestProperty("Authorization", s"$str")
     conn.setDoOutput(true)
 
     Using.resource(conn.getOutputStream) { os =>
       os.write(json.getBytes("UTF-8"))
     }
 
-    val response = Using.resource(conn.getInputStream) { is =>
-      Source.fromInputStream(is).mkString
-    }
-
-    println(s"📤 Score envoyé : $response")
+    val responseCode = conn.getResponseCode
+    responseCode == 200
   }
 
   def fetchLeaderboard(song: String): Unit = {

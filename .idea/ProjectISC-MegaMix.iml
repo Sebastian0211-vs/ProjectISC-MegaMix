@@ -11,5 +11,7 @@
     <orderEntry type="library" name="gdx2d-desktop-1.2.2" level="project" />
     <orderEntry type="library" name="gdx2d-desktop-1.2.2-sources" level="project" />
     <orderEntry type="library" name="scala-sdk-2.13.14" level="application" />
+    <orderEntry type="library" name="json4s.ast_2.12" level="project" />
+    <orderEntry type="library" name="io.github.json4s.jackson_2.13" level="project" />
   </component>
 </module>
