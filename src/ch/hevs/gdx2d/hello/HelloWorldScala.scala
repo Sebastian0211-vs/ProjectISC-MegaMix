@@ -78,7 +78,6 @@ object NoteLoader {
 
   def load(midiPath: String,
            cx: Float, cy: Float,
-           channel: Int,
            difficulty: Int = 4): Vector[Note] = {
 
     val seq = MidiSystem.getSequence(Gdx.files.internal(midiPath).file())
@@ -145,7 +144,11 @@ object NoteLoader {
                 val start = active.remove(pitch).getOrElse(trk.get(i).getTick)
                 val ms    = tickToMs(start)
                 // Calcul du groupe et de l'angle dans le quart de cercle
-
+                while (onScreen.nonEmpty && ms - onScreen.head > displayMs) onScreen.dequeue()
+                if (onScreen.size >= maxOnScreen) {
+                  // skip
+                  noteCount += 1
+                } else {
                 val groupIdx = noteCount / groupSize
                 val idxInGroup = noteCount % groupSize
                 val startAngle = groupIdx * quarterCircle
@@ -171,13 +174,13 @@ object NoteLoader {
                 var destY = interY + math.sin(Math.toRadians(destAngle)).toFloat * secondRadius
 
 
-                val laneOffset = 30
+                val laneOffset = 60
                 var key = (destX, destY)
 
 
                 for(i <- 0 to 30) {
                   if (occupied.forall { case (x, y) =>
-                    math.abs(x - key._1) >= 60 || math.abs(y - key._2) >= 60
+                    math.abs(x - key._1) >= 120 || math.abs(y - key._2) >= 120
                   }) {}else {
 
                     noteCount = noteCount + groupSize - idxInGroup
@@ -212,7 +215,11 @@ object NoteLoader {
                 }
 
                 out += Note(ms, lane, angle, sx, sy, destX, destY)
-                noteCount += 1
+                  onScreen.enqueue(ms)
+
+
+                  noteCount += 1
+                }
               case _ =>
             }
           case _ =>
@@ -322,7 +329,7 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
 
     val midiPath = "data/ANAMANAGUCHI - Miku.mid"
-    upcoming = NoteLoader.load(midiPath, cx, cy, 1, 1)
+    upcoming = NoteLoader.load(midiPath, cx, cy,1)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
