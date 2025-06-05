@@ -279,7 +279,7 @@ class NoteEntity(n: Note, colour: Color) {
 
   val lane: Int   = n.lane
   val hitTime: Long = n.startMs
-}
+}}
 
 /** ---------------------------------------------------------------------------
  *  GAME APP – single‑loop logic
@@ -449,6 +449,6 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     case _ => new Color(255f/255, 0f/255, 96f/255, 1f)
   }
 
-}}
+}
 
 
