@@ -52,9 +52,12 @@ case class Note(
 object NoteLoader {
   private val DefaultTPQ  = 480
   val OuterChartRadius: Float  = 1000f
-  val ChartRadius: Float = 100 // spawn radius
-  var secondRadius: Float = 300 // second chance radius
-  var occupied:ArrayBuffer[(Int, Int)] = new ArrayBuffer[(Int, Int)]
+  val ChartRadius: Float = 150 // spawn radius
+  var secondRadius: Float = 280 // second chance radius
+
+  var extraspace: Int = 0
+
+  var occupied:ArrayBuffer[(Float, Float)] = new ArrayBuffer[(Float, Float)]
   private val DrumChannel = 9 // ignore GM drums by default
 
   def load(midiPath: String, cx: Float, cy: Float,channel: Int): Vector[Note] = {
@@ -109,14 +112,15 @@ object NoteLoader {
 
     // Remplacez la boucle de création de notes dans NoteLoader.load par ceci :
     val groupSize = 6
-    val quarterCircle = 90 // degrés
+    val quarterCircle = 95 // degrés
     var noteCount = 0
 
     var interX = cx + math.cos(Math.toRadians(0)).toFloat * secondRadius
     var interY = cy + math.sin(Math.toRadians(0)).toFloat * secondRadius
 
-    var currentgroup: ArrayBuffer[(Int, Int)] = new ArrayBuffer[(Int, Int)]
+    var currentgroup: ArrayBuffer[(Float,Float)] = new ArrayBuffer[(Float,Float)]
 
+    var numnotes: Int = 0
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
@@ -127,20 +131,23 @@ object NoteLoader {
             sm.getCommand match {
               case ShortMessage.NOTE_ON if sm.getData2 > 0 =>
                 active += pitch -> trk.get(i).getTick
+
               case ShortMessage.NOTE_OFF | ShortMessage.NOTE_ON =>
+
                 val start = active.remove(pitch).getOrElse(trk.get(i).getTick)
                 val ms    = tickToMs(start)
                 // Calcul du groupe et de l'angle dans le quart de cercle
+
                 val groupIdx = noteCount / groupSize
                 val idxInGroup = noteCount % groupSize
                 val startAngle = groupIdx * quarterCircle
                 val angleStep = quarterCircle / (groupSize - 1)
-                val destAngle = startAngle + idxInGroup * angleStep // 1.5 pour étendre l'angle de destination
+                var destAngle = startAngle + idxInGroup * angleStep // 1.5 pour étendre l'angle de destination
 
 
                 // Point de spawn (extérieur)
-                val sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * OuterChartRadius
-                val sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * OuterChartRadius
+                var sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+                var sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
                 // Destination sur le quart de cercle intérieur
 
                 if(idxInGroup==0){
@@ -149,32 +156,50 @@ object NoteLoader {
 
                   occupied++=currentgroup
                   currentgroup.clear()
+
+                  extraspace = 0
                 }
                 var destX = interX + math.cos(Math.toRadians(destAngle)).toFloat * secondRadius
                 var destY = interY + math.sin(Math.toRadians(destAngle)).toFloat * secondRadius
 
 
-                val laneOffset = 120
-                var key = ((destX / laneOffset).toInt, (destY / laneOffset).toInt)
-                for(i <- 0 to 10) {
-                  if (occupied.contains(key)) {
-                    interX = cx + math.cos(math.random()*2*math.Pi + i).toFloat * ChartRadius
-                    interY = cy + math.sin(math.random()*2*math.Pi + i).toFloat * ChartRadius
-                    occupied++=currentgroup
-                    currentgroup.clear()
+                val laneOffset = 30
+                var key = (destX, destY)
+
+
+                for(i <- 0 to 30) {
+                  if (occupied.forall { case (x, y) =>
+                    math.abs(x - key._1) >= 60 || math.abs(y - key._2) >= 60
+                  }) {}else {
+
+                    noteCount = noteCount + groupSize - idxInGroup
+                    destAngle = (groupIdx + 1) * quarterCircle
+
+                    if(i > 10){
+                      noteCount += groupSize
+                      destAngle += quarterCircle
+                    }
+
+                    sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+                    sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+
+                    interX += (math.random().toFloat * laneOffset - laneOffset / 2)
+                    interY += (math.random().toFloat * laneOffset - laneOffset / 2)
 
                     destX = interX + math.cos(Math.toRadians(destAngle)).toFloat * secondRadius
                     destY = interY + math.sin(Math.toRadians(destAngle)).toFloat * secondRadius
                     println(s"[NoteLoader] Collision detected at $key, retrying with new position $i")
+                    key = (destX, destY)
+                    occupied ++= currentgroup
+                    currentgroup.clear()
+
                   }
-                  key = ((destX / laneOffset).toInt, (destY / laneOffset).toInt)
                 }
+
                 currentgroup.addOne(key)
-                if (occupied.length > 30){
+                if (occupied.length >= groupSize*1.5){
                   occupied = occupied.tail
                 }
-
-
 
                 out += Note(ms, lane, angle, sx, sy, destX, destY)
                 noteCount += 1
@@ -210,7 +235,7 @@ class NoteEntity(n: Note, colour: Color) {
     val (x, y) = pos(now)
     val distance = math.sqrt(math.pow(n.destX - x, 2) + math.pow(n.destY - y, 2)).toFloat
     val transparency = math.min(1f, 0.5f - distance / 1000f)
-    println(s"[NoteEntity] distance: $distance")
+    //println(s"[NoteEntity] distance: $distance")
     val ghost  = new Color(colour.r, colour.g, colour.b, transparency)
     // Ligne du point de spawn à la destination
     g.drawLine(n.spawnX, n.spawnY, n.destX, n.destY, ghost)
@@ -252,12 +277,12 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
 
     //Gdx.graphics.setWindowedMode(1920, 1080)
-    var midiPath = "data/lumière.mid"
+    var midiPath = "data/Teto Territory.mid"
 
     upcoming = NoteLoader.load(midiPath,  cx, cy,1)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
-    music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
+    music = Gdx.audio.newMusic(Gdx.files.internal("data/song.mp3"))
 
     val sequencer = MidiSystem.getSequencer()
     sequencer.open()
@@ -340,4 +365,6 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     case 3 => Color.GREEN
     case _ => Color.FIREBRICK
   }
+
 }
+
