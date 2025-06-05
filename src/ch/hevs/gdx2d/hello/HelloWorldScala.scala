@@ -175,9 +175,12 @@ object NoteLoader {
                     noteCount = noteCount + groupSize - idxInGroup
                     destAngle = (groupIdx + 1) * quarterCircle
 
-                    if(i > 10){
+                    if(i > 15){
                       noteCount += groupSize
                       destAngle += quarterCircle
+                    }
+                    if(i > 10){
+                      occupied = occupied.tail
                     }
 
                     sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
@@ -188,16 +191,15 @@ object NoteLoader {
 
                     destX = interX + math.cos(Math.toRadians(destAngle)).toFloat * secondRadius
                     destY = interY + math.sin(Math.toRadians(destAngle)).toFloat * secondRadius
-                    println(s"[NoteLoader] Collision detected at $key, retrying with new position $i")
+                    //println(s"[NoteLoader] Collision detected at $key, retrying with new position $i")
                     key = (destX, destY)
                     occupied ++= currentgroup
                     currentgroup.clear()
-
+                    if (i == 29) println("failed finding a spot"+occupied)
                   }
                 }
-
                 currentgroup.addOne(key)
-                if (occupied.length >= groupSize*1.5){
+                while(occupied.length >= 20){
                   occupied = occupied.tail
                 }
 
@@ -277,7 +279,7 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
 
     //Gdx.graphics.setWindowedMode(1920, 1080)
-    var midiPath = "data/Teto Territory.mid"
+    var midiPath = "data/lumière.mid"
 
     upcoming = NoteLoader.load(midiPath,  cx, cy,1)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
