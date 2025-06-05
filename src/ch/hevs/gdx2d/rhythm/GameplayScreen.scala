@@ -45,7 +45,7 @@ case class Note(
                  destY   : Float,
                )
 
-/** Small transient graphic that disappears after ~800 ms */
+/** Small transient graphic that disappears after ~800ms */
 case class Feedback(x: Float, y: Float, kind: String, born: Long)
 
 /** ---------------------------------------------------------------------------

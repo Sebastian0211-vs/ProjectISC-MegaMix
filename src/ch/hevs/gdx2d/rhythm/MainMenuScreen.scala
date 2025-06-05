@@ -1,10 +1,4 @@
-// MainMenuScreen.scala  – single-window refactor
-// -----------------------------------------------------------------------------
-// This screen replaces the old PortableApplication subclass.  It lives inside
-// the one and only desktop window owned by `RhythmGame` and drives the login /
-// song-selection flow.  When the player presses Play we download the chosen
-// MIDI (if not already cached) and hand control to GameplayScreen.
-// -----------------------------------------------------------------------------
+// MainMenuScreen.scala
 package ch.hevs.gdx2d.rhythm
 
 import ch.hevs.gdx2d.components.bitmaps.BitmapImage
@@ -24,7 +18,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Using
 
-/** Menu → login → song list → Play.  All in one Stage. */
 class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
 
   // ───────────────────────────────────── UI widgets ────────────────────────
@@ -73,9 +66,6 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
     title.setPosition(260, 520)
 
 
-
-
-
     // Username / password fields
     username.setMessageText("Username")
     username.setSize(300, 40); username.setPosition(260, 440)
@@ -87,8 +77,13 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
     // Login button
     loginBtn.setSize(140, 40); loginBtn.setPosition(260, 320)
     loginBtn.addListener(new ClickListener {
-      override def clicked(e: InputEvent, x: Float, y: Float): Unit =
+      override def clicked(e: InputEvent, x: Float, y: Float): Unit = {
+        try {
         doLogin()
+        } catch{
+          case e: Throwable => println(f"Error with credentials :$e")
+        }
+      }
     })
 
     // Song list and Play
@@ -97,8 +92,9 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
     playBtn.setSize(140, 40); playBtn.setPosition(260, 190)
     playBtn.setDisabled(true)
     playBtn.addListener(new ClickListener {
-      override def clicked(e: InputEvent, x: Float, y: Float): Unit =
+      override def clicked(e: InputEvent, x: Float, y: Float): Unit = {
         startGame()
+      }
     })
 
     // Add actors to the stage

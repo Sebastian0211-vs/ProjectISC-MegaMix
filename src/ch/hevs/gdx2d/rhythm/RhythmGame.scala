@@ -1,5 +1,5 @@
-// RhythmGame.scala   (keep this one)
-package ch.hevs.gdx2d.rhythm          // ← keep everything in this package
+// RhythmGame.scala
+package ch.hevs.gdx2d.rhythm
 
 import ch.hevs.gdx2d.lib.GdxGraphics
 import ch.hevs.gdx2d.desktop.PortableApplication
@@ -7,7 +7,7 @@ import com.badlogic.gdx.Gdx
 
 class RhythmGame extends PortableApplication(1920, 1080) {
 
-  private var current: Screen2d = _        // Screen2d is our light adapter
+  private var current: Screen2d = _
 
   def switchScreen(next: Screen2d): Unit = {
     if (current != null) current.dispose()
