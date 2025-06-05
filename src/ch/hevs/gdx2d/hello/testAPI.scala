@@ -1,0 +1,78 @@
+package ch.hevs.gdx2d.hello
+
+import java.net.{HttpURLConnection, URL, URLEncoder}
+import java.io.{BufferedReader, InputStreamReader, OutputStream}
+import scala.util.Using
+import scala.io.Source
+
+object RhythmApiDemo {
+  val baseUrl = "https://midis.triceratops.ch"
+
+  def main(args: Array[String]): Unit = {
+    val username = "sebas"
+    val password = "hunter2"
+    val song = "bad apple.mid"
+    val score = 29700
+
+    val tokenOpt = login(username, password)
+    tokenOpt match {
+      case Some(token) =>
+        println(s"✅ Token: $token")
+        postScore(token, song, score)
+        fetchLeaderboard(song)
+      case None =>
+        println("❌ Login échoué.")
+    }
+  }
+
+  def login(username: String, password: String): Option[String] = {
+    val json = s"""{"username": "$username", "password": "$password"}"""
+    val url = new URL(s"$baseUrl/login")
+    val conn = url.openConnection().asInstanceOf[HttpURLConnection]
+    conn.setRequestMethod("POST")
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setDoOutput(true)
+
+    Using.resource(conn.getOutputStream) { os =>
+      os.write(json.getBytes("UTF-8"))
+    }
+
+    val response = Using.resource(conn.getInputStream) { is =>
+      Source.fromInputStream(is).mkString
+    }
+
+    // Extraction du token de manière simple
+    val tokenRegex = """"token"\s*:\s*"([^"]+)"""".r
+    tokenRegex.findFirstMatchIn(response).map(_.group(1))
+  }
+
+  def postScore(token: String, song: String, score: Int): Unit = {
+    val json = s"""{"song": "$song", "score": $score}"""
+    val url = new URL(s"$baseUrl/score")
+    val conn = url.openConnection().asInstanceOf[HttpURLConnection]
+    conn.setRequestMethod("POST")
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setRequestProperty("Authorization", token)
+    conn.setDoOutput(true)
+
+    Using.resource(conn.getOutputStream) { os =>
+      os.write(json.getBytes("UTF-8"))
+    }
+
+    val response = Using.resource(conn.getInputStream) { is =>
+      Source.fromInputStream(is).mkString
+    }
+
+    println(s"📤 Score envoyé : $response")
+  }
+
+  def fetchLeaderboard(song: String): Unit = {
+    val encoded = URLEncoder.encode(song, "UTF-8")
+    val url = new URL(s"$baseUrl/leaderboard?song=$encoded")
+    val response = Using.resource(url.openStream()) {
+      Source.fromInputStream(_).mkString
+    }
+
+    println(s"📊 Leaderboard pour '$song' :\n$response")
+  }
+}

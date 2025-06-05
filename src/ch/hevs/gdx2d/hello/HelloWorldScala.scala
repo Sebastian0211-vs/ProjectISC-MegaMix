@@ -11,9 +11,6 @@ import javax.sound.midi._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Rhythm‑game prototype – single‑loop architecture with scoring and feedback.
- */
 object SimpleRhythmGame {
   def main(args: Array[String]): Unit = new RhythmGameApp()
 }
@@ -238,12 +235,15 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
   private var upcoming   = Vector.empty[Note]
   private val feedbacks  = mutable.ListBuffer[Feedback]()
   private var score      = 0
+  private var combo      = 0
+  private var combocounter = 0
   private var music      : Music = _
 
   private var cx = 0f; private var cy = 0f
   private var frame = 0
   private var t0: Long = 0L
   private var sfx:Sound = _
+  private var comboUp:Sound = _
 
   override def onInit(): Unit = {
     setTitle("ISCProject – MegaMix")
@@ -251,11 +251,14 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     cx = Gdx.graphics.getWidth / 2f
     cy = Gdx.graphics.getHeight / 2f
 
+
+
     sfx = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/sfx.wav"))
+    comboUp = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
 
 
-    val midiPath = "data/bad apple.mid"
+    val midiPath = "data/ANAMANAGUCHI - Miku.mid"
     upcoming = NoteLoader.load(midiPath, cx, cy, 1, 1)
     println(s"[Init] Parsed ${upcoming.size} notes – first at ${upcoming.headOption.map(_.startMs).getOrElse(-1)} ms")
 
@@ -297,6 +300,8 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
     if (spawned > 0)
       println(s"[Spawn] $spawned notes (queue left: ${upcoming.size}) @ $now ms")
 
+
+
     // ─── input & judgement ───
     for (lane <- pollInput()) {
       live
@@ -308,19 +313,31 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
             val (kind, pts) =
               if (diff <= perfectWindow) ("Perfect", 300) else ("Good", 100)
 
-            score += pts
+            combocounter+=1
+            if (combocounter > 9) {
+              combo = math.min(2* combo,16)
+              combocounter = 0
+              comboUp.play()
+            }
+            score += pts* combo
             feedbacks += Feedback(e.destX, e.destY, kind, now)
             live -= e
           } else {                                    // pressed outside window
             feedbacks += Feedback(e.destX, e.destY, "Miss", now)
             live -= e
+            combo = 1
+            combocounter = 0
           }
         }
     }
 
     // ─── auto-miss notes that scrolled past ───
     val justMissed = live.filter(e => now - e.hitTime > hitWindow)
-    justMissed.foreach(e => feedbacks += Feedback(e.destX, e.destY, "Miss", now))
+    justMissed.foreach { e =>
+      feedbacks += Feedback(e.destX, e.destY, "Miss", now)
+      combo = 1
+      combocounter = 0
+    }
     live --= justMissed                               // remove from play
 
     // ─── prune old feedbacks ───
@@ -352,6 +369,8 @@ class RhythmGameApp extends PortableApplication(1920, 1080) {
 
     g.drawString(20, Gdx.graphics.getHeight - 40, s"Active notes: ${live.size}")
     g.drawString(20, Gdx.graphics.getHeight - 80, s"Score: $score")
+    g.drawString(20, Gdx.graphics.getHeight - 120, s"Combo: x$combo ; Counter: $combocounter")
+
     g.drawFPS()
   }
 
