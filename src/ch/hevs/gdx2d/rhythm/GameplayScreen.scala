@@ -1,7 +1,7 @@
 package ch.hevs.gdx2d.rhythm
 import ch.hevs.gdx2d.components.bitmaps.BitmapImage
 import ch.hevs.gdx2d.desktop.PortableApplication
-import ch.hevs.gdx2d.hello.RhythmApiDemo.baseUrl
+import ch.hevs.gdx2d.rhythm.RhythmApi.baseUrl
 import ch.hevs.gdx2d.lib.GdxGraphics
 import com.badlogic.gdx.{Gdx, Input}
 import com.badlogic.gdx.audio.{Music, Sound}
@@ -72,7 +72,7 @@ object NoteLoader {
 
     // difficulty → max notes simultaneously visible
     val maxOnScreen = difficulty match {
-      case 1 => 3; case 2 => 5; case 3 => 7; case _ => 10
+      case 1 => 3; case 2 => 5; case 3 => 7; case _ => 100
     }
 
     /* tempo map */
@@ -100,9 +100,8 @@ object NoteLoader {
 
     val active   = mutable.Map[Int, Long]()
     val out      = Vector.newBuilder[Note]
-    val onScreen = mutable.Queue[Long]()   // timestamps of notes currently visible
+    val onScreen = mutable.Queue[Long]()
 
-    // Remplacez la boucle de création de notes dans NoteLoader.load par ceci :
     val groupSize = 6
     val quarterCircle = 95 // degrés
     var noteCount = 0
@@ -328,11 +327,10 @@ class GameplayScreen(app: RhythmGame,
     comboUp  = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
     val midiPath = s"data/tmp/$path"
-    upcoming = NoteLoader.load(midiPath, cx, cy, 1)
+    upcoming = NoteLoader.load(midiPath, cx, cy, 4)
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
 
-    // — your existing Sequencer initialisation —
     val seq = MidiSystem.getSequencer(); seq.open()
     seq.setSequence(Gdx.files.internal(midiPath).read())
     val synth = MidiSystem.getSynthesizer; synth.open()
@@ -376,8 +374,8 @@ class GameplayScreen(app: RhythmGame,
     // ─── input & judgement ───
     for (lane <- pollInput()) {
       live
-        .filter(_.lane == lane)                       // look only in this lane
-        .minByOption(e => math.abs(e.hitTime - now))  // …pick the closest note
+        .filter(_.lane == lane)
+        .minByOption(e => math.abs(e.hitTime - now))
         .foreach { e =>
           if (e.hittable(now, hitWindow)) {
             val diff        = (e.hitTime - now).abs
@@ -393,7 +391,7 @@ class GameplayScreen(app: RhythmGame,
             score += pts* combo
             feedbacks += Feedback(e.destX, e.destY, kind, now)
             live -= e
-          } else {                                    // pressed outside window
+          } else {
             feedbacks += Feedback(e.destX, e.destY, "Miss", now)
             live -= e
             combo = 1
@@ -409,7 +407,7 @@ class GameplayScreen(app: RhythmGame,
       combo = 1
       combocounter = 0
     }
-    live --= justMissed                               // remove from play
+    live --= justMissed
 
     // ─── prune old feedbacks ───
     feedbacks.filterInPlace(f => now - f.born < 800)
@@ -430,6 +428,7 @@ class GameplayScreen(app: RhythmGame,
       //mute the midi
       Option(music).foreach(_.stop())
       app.switchScreen(new MainMenuScreen(app))
+
     }
 
     // ─── rendering ───

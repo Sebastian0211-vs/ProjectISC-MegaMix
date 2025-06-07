@@ -1,11 +1,10 @@
-package ch.hevs.gdx2d.hello
+package ch.hevs.gdx2d.rhythm
 
 import java.net.{HttpURLConnection, URL, URLEncoder}
-import java.io.{BufferedReader, InputStreamReader, OutputStream}
-import scala.util.Using
 import scala.io.Source
+import scala.util.Using
 
-object RhythmApiDemo {
+object RhythmApi {
   val baseUrl = "https://midis.triceratops.ch"
 
   def main(args: Array[String]): Unit = {
@@ -24,6 +23,23 @@ object RhythmApiDemo {
         println("❌ Login échoué.")
     }
   }
+
+  def register(username: String, password: String): Boolean = {
+    val json = s"""{"username": "$username", "password": "$password"}"""
+    val url = new URL(s"$baseUrl/register")
+    val conn = url.openConnection().asInstanceOf[HttpURLConnection]
+    conn.setRequestMethod("POST")
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setDoOutput(true)
+
+    Using.resource(conn.getOutputStream) { os =>
+      os.write(json.getBytes("UTF-8"))
+    }
+
+    val responseCode = conn.getResponseCode
+    responseCode == 201
+  }
+
 
   def login(username: String, password: String): Option[String] = {
     val json = s"""{"username": "$username", "password": "$password"}"""

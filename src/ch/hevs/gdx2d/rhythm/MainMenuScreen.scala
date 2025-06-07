@@ -8,7 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.{InputEvent, Stage}
 import com.badlogic.gdx.scenes.scene2d.ui._
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import ch.hevs.gdx2d.lib.GdxGraphics
-import ch.hevs.gdx2d.hello.RhythmApiDemo._
+import ch.hevs.gdx2d.rhythm.RhythmApi.{login, register}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
@@ -48,11 +48,11 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
 
   override def render(g: GdxGraphics, dt: Float): Unit = {
     g.clear(Color.DARK_GRAY)
-
-
     stage.act(dt)
     g.drawTransformedPicture(1920/2, 1080/2,0,1 , Assets.BackgroundBitMap)
     stage.draw()
+
+
 
   }
 
@@ -82,6 +82,7 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
         doLogin()
         } catch{
           case e: Throwable => println(f"Error with credentials :$e")
+            doRegister()
         }
       }
     })
@@ -104,7 +105,6 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
     stage.addActor(songsBox); stage.addActor(playBtn)
   }
 
-  /** Called when Login is pressed. */
   private def doLogin(): Unit = {
     val user = username.getText
     val pass = password.getText
@@ -123,11 +123,25 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
     }
   }
 
-  /** Play becomes clickable only when we have both a token and a song list. */
+  private def doRegister(): Unit = {
+    val user = username.getText
+    val pass = password.getText
+    val success = register(user, pass)
+
+    Gdx.app.postRunnable { () =>
+      if (success) {
+        println("✅ Enregistrement réussi")
+        doLogin()
+      } else {
+        println("❌ Échec de l'enregistrement")
+      }
+    }
+  }
+
+
   private def updatePlayButtonState(): Unit =
     playBtn.setDisabled(Session.token.isEmpty || songs.isEmpty)
 
-  /** Download the chosen MIDI (if needed) and switch to gameplay. */
   private def startGame(): Unit = {
     val tok   = Session.token.getOrElse(return)
     val song  = Option(songsBox.getSelected).getOrElse(return)
