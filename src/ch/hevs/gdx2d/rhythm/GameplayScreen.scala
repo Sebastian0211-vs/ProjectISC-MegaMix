@@ -327,7 +327,7 @@ class GameplayScreen(app: RhythmGame,
     comboUp  = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
     val midiPath = s"data/tmp/$path"
-    upcoming = NoteLoader.load(midiPath, cx, cy, 4)
+    upcoming = NoteLoader.load(midiPath, cx, cy, 1)
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
 
@@ -400,7 +400,6 @@ class GameplayScreen(app: RhythmGame,
         }
     }
 
-    // ─── auto-miss notes that scrolled past ───
     val justMissed = live.filter(e => now - e.hitTime > hitWindow)
     justMissed.foreach { e =>
       feedbacks += Feedback(e.destX, e.destY, "Miss", now)
@@ -409,10 +408,8 @@ class GameplayScreen(app: RhythmGame,
     }
     live --= justMissed
 
-    // ─── prune old feedbacks ───
     feedbacks.filterInPlace(f => now - f.born < 800)
 
-    // ─── periodic debug log ───
     if (frame % LOG_EVERY_N_FRAMES == 0)
       println(
         s"[Frame $frame] now=$now live=${live.size} queue=${upcoming.size} score=$score"
