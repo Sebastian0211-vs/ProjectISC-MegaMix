@@ -332,7 +332,7 @@ class GameplayScreen(app: RhythmGame,
     comboUp  = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
     val midiPath = s"data/tmp/$path"
-    upcoming = NoteLoader.load(midiPath, cx, cy, 1)
+    upcoming = NoteLoader.load(midiPath, cx, cy, 4)
 
     music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
 
@@ -458,9 +458,6 @@ class GameplayScreen(app: RhythmGame,
 
   }
 
-
-
-
   def postScore(str: String, str1: String, i: Int): Boolean = {
     val json = s"""{"song": "$str1", "score": $i}"""
     val url = new URL(s"$baseUrl/score")
@@ -482,10 +479,5 @@ class GameplayScreen(app: RhythmGame,
     Option(music).foreach(_.dispose())
     Option(sfx).foreach(_.dispose())
     Option(comboUp).foreach(_.dispose())
-
-
-
   }
 }
-
-
