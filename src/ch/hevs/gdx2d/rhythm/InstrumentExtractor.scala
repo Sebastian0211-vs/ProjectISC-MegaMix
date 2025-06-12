@@ -1,20 +1,38 @@
+// -----------------------------------------------------------------------------
+//  Extracteur d'instruments MIDI – utilitaire pour l'écran de sélection
+// -----------------------------------------------------------------------------
+//  Cette classe parcourt une Sequence MIDI afin d'identifier :
+//   • Les banques (MSB/LSB) et les Program Change utilisés par canal
+//   • Les percussions déclenchées sur le canal 10 (index 9)
+//   • Les éventuels noms d'instruments définis dans les meta‑events (type 0x04)
+//
+//  Elle renvoie une liste InstrumentChoice, réutilisée par le menu pour remplir
+//  la ComboBox des instruments disponibles.
+// -----------------------------------------------------------------------------
+
 package ch.hevs.gdx2d.rhythm
 
 import javax.sound.midi.{MetaMessage, Sequence, ShortMessage}
 import scala.collection.mutable
 
 object InstrumentExtractor {
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Type retourné pour la UI
+  // ──────────────────────────────────────────────────────────────────────────
   case class InstrumentChoice(
-                               channel: Int,
-                               program: Int,
-                               bankMsb: Int,
-                               bankLsb: Int,
-                               name: String
+                               channel : Int,  // N° de canal (0‒15)
+                               program : Int,  // N° de programme (0‒127) ou -1 pour percussions
+                               bankMsb : Int,  // Bank Select MSB (CC#0)
+                               bankLsb : Int,  // Bank Select LSB (CC#32)
+                               name    : String // Nom lisible de l'instrument
                              )
 
-  // GM1 melodic instrument names (0-127)
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Tables de noms – standard GM1
+  // ──────────────────────────────────────────────────────────────────────────
+  /** Noms GM1 pour les instruments mélodiques (Program Change 0‑127). */
   private val gmMelodicNames: Array[String] = Array(
-
     "Acoustic Grand Piano", "Bright Piano", "Electric Grand", "Honky-Tonk", "Electric Piano 1", "Electric Piano 2",
     "Harpsichord", "Clavinet", "Celesta", "Glockenspiel", "Music Box", "Vibraphone", "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
     "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ", "Reed Organ", "Accordion", "Harmonica", "Tango Accordion",
@@ -33,76 +51,86 @@ object InstrumentExtractor {
     "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet", "Telephone Ring", "Helicopter", "Applause", "Gunshot"
   )
 
+  /**
+   *  Mapping simplifié note → nom pour les percussions (canal 10). On n'en
+   *  dresse qu'une courte liste des sons les plus courants.
+   */
   private val percussionMap: Map[Int, String] = Map(
     35 -> "Acoustic Bass Drum", 36 -> "Bass Drum 1", 38 -> "Acoustic Snare",
     40 -> "Electric Snare", 42 -> "Closed Hi-Hat", 46 -> "Open Hi-Hat",
   )
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Fonction principale – parcours de la Sequence
+  // ──────────────────────────────────────────────────────────────────────────
+  /**
+   *  Analyse la Sequence MIDI et retourne la liste des InstrumentChoice.
+   */
   def extractInstruments(seq: Sequence): Seq[InstrumentChoice] = {
-    // Track bank select (CC0, CC32) and program change per channel
-    val bankMsb = mutable.Map[Int, Int]().withDefaultValue(0)
-    val bankLsb = mutable.Map[Int, Int]().withDefaultValue(0)
-    val programs = mutable.Map[Int, Int]().withDefaultValue(0)
-    // Optional meta-defined instrument names per channel
-    val metaNames = mutable.Map[Int, String]()
-    // For percussion: track first note-ons per channel
-    val percussionNotes = mutable.Map[Int, Int]()
 
+    // Maps mutables pour suivre l'état par canal
+    val bankMsb  = mutable.Map[Int, Int]().withDefaultValue(0) // CC#0
+    val bankLsb  = mutable.Map[Int, Int]().withDefaultValue(0) // CC#32
+    val programs = mutable.Map[Int, Int]().withDefaultValue(0) // Program Change
+
+    val metaNames       = mutable.Map[Int, String]()           // nom via Meta (type 0x04)
+    val percussionNotes = mutable.Map[Int, Int]()              // première note jouée canal 9
+
+    // ─── Parcours de tous les tracks / événements ───
     seq.getTracks.foreach { track =>
       for (i <- 0 until track.size()) {
-        val ev = track.get(i)
-        ev.getMessage match {
+        track.get(i).getMessage match {
           case msg: ShortMessage =>
             msg.getCommand match {
-              case ShortMessage.CONTROL_CHANGE =>
-                msg.getData1 match {
-                  case 0  => bankMsb(msg.getChannel) = msg.getData2
-                  case 32 => bankLsb(msg.getChannel) = msg.getData2
-                  case _  => // ignore
-                }
+              case ShortMessage.CONTROL_CHANGE => msg.getData1 match {
+                case 0  => bankMsb(msg.getChannel) = msg.getData2      // Bank MSB
+                case 32 => bankLsb(msg.getChannel) = msg.getData2      // Bank LSB
+                case _  => // autres CC ignorés
+              }
               case ShortMessage.PROGRAM_CHANGE =>
-                programs(msg.getChannel) = msg.getData1
+                programs(msg.getChannel) = msg.getData1               // Program
               case ShortMessage.NOTE_ON if msg.getChannel == 9 && msg.getData2 > 0 =>
+                // On retient la première note de percussion pour nommer l'instrument
                 percussionNotes.getOrElseUpdate(9, msg.getData1)
-              case _ => // ignore
+              case _ => // autres messages ignorés
             }
-          case mm: MetaMessage if mm.getType == 0x04 =>
-            val name = new String(mm.getData, "UTF-8").trim
 
+          case mm: MetaMessage if mm.getType == 0x04 =>
+            // MetaEvent type 0x04 = Track/Instrument Name
+            val name = new String(mm.getData, "UTF-8").trim
+            // On associe par convention au canal 0 (ou autre logique si souhaitée)
             metaNames(0) = name
-          case _ =>
+          case _ => // événements non gérés
         }
       }
     }
 
-
-    seq.getTracks.indices.flatMap { _ => Nil }
-
+    // ─── Construit la liste finale des canaux rencontrés ───
     val channels = (programs.keys ++ percussionNotes.keys).toSet
+
+    // Pour chaque canal → InstrumentChoice
     channels.toSeq.sorted.map { ch =>
       if (ch == 9) {
-        // percussion
+        // Canal 10 = batterie / percussions GM
         val note = percussionNotes.getOrElse(9, -1)
         val name = percussionMap.getOrElse(note, s"Percussion $note")
         InstrumentChoice(ch, program = -1, bankMsb = 0, bankLsb = 0, name)
       } else {
-        val prg = programs(ch)
-        val msb = bankMsb(ch)
-        val lsb = bankLsb(ch)
-
+        val prg = programs(ch); val msb = bankMsb(ch); val lsb = bankLsb(ch)
         val name = metaNames.getOrElse(ch, resolveName(prg, msb, lsb))
         InstrumentChoice(ch, prg, msb, lsb, name)
       }
     }
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Résolution du nom de l'instrument (fallback)
+  // ──────────────────────────────────────────────────────────────────────────
   private def resolveName(prg: Int, msb: Int, lsb: Int): String = {
-
-    if (msb == 0 && lsb == 0) {
+    // Cas le plus courant : banque GM1 (0,0)
+    if (msb == 0 && lsb == 0)
       gmMelodicNames.lift(prg).getOrElse(s"Program $prg")
-    } else {
-
-      s"Bank($msb,$lsb) Prog $prg"
-    }
+    else
+      s"Bank($msb,$lsb) Prog $prg" // sinon on affiche la banque brute
   }
 }
