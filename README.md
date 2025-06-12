@@ -78,15 +78,14 @@ graph TD
 * **NoteLoader** : convertit ticks MIDI → positions circulaires « bullet‑hell ».
 * **InstrumentExtractor** : Choix de l'instrument à l'utilisateur
 
----`
+
 
 #### Dépendances Maven (extrait `build.sbt`)
 
 ```scala
 libraryDependencies ++= Seq(
-  "org.json4s" %% "json4s-jackson" % "4.0.7",
-  "org.json4s" %% "json4s-native"  % "4.0.7",
-  "com.badlogicgames.gdx" % "gdx-backend-lwjgl3" % "1.12.0"
+  "org.json4s" %% "json4s-jackson" % "2.13",
+  "org.json4s" %% "json4s-native"  % "2.12",
 )
 ```
 
