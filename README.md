@@ -81,6 +81,7 @@ graph TD
 * **InstrumentExtractor** : Choix de l'instrument à l'utilisateur
 
 
+<img src="https://static.vecteezy.com/system/resources/previews/012/042/304/non_2x/warning-sign-icon-transparent-background-png.png" width="60" height="60" />
 
 #### Dépendances Maven (extrait `build.sbt`)
 
