@@ -3,6 +3,8 @@ import ch.hevs.gdx2d.components.bitmaps.BitmapImage
 import ch.hevs.gdx2d.desktop.PortableApplication
 import ch.hevs.gdx2d.rhythm.RhythmApi.baseUrl
 import ch.hevs.gdx2d.lib.GdxGraphics
+import ch.hevs.gdx2d.rhythm.InstrumentExtractor.extractInstruments
+
 import com.badlogic.gdx.{Gdx, Input}
 import com.badlogic.gdx.audio.{Music, Sound}
 import com.badlogic.gdx.graphics.Color
@@ -65,9 +67,14 @@ object NoteLoader {
 
   def load(midiPath: String,
            cx: Float, cy: Float,
-           difficulty: Int = 4): Vector[Note] = {
+           difficulty: Int = 4,
+           selectedChannel: Int): Vector[Note] = {
 
     val seq = MidiSystem.getSequence(Gdx.files.internal(midiPath).file())
+
+
+
+
     val tpq = Option(seq.getResolution).filter(_ > 0).getOrElse(DefaultTPQ).toFloat
 
     // difficulty → max notes simultaneously visible
@@ -115,8 +122,10 @@ object NoteLoader {
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
-          case sm: ShortMessage =>
-            val pitch = sm.getData1
+          case sm: ShortMessage if selectedChannel == sm.getChannel =>
+
+
+          val pitch = sm.getData1
             val lane  = pitch % 4
 
             val angle = (((pitch / 4) % 12) * 30).toFloat
@@ -143,8 +152,8 @@ object NoteLoader {
 
 
                 // Point de spawn (extérieur)
-                var sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
-                var sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
+                var sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+                var sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
                 // Destination sur le quart de cercle intérieur
 
                 if(idxInGroup==0){
@@ -165,11 +174,11 @@ object NoteLoader {
 
 
                 for(i <- 0 to 30) {
-                  if (!(occupied.forall { case (x, y) =>
+                  if (occupied.forall { case (x, y) =>
                     math.abs(x - key._1) >= 120 || math.abs(y - key._2) >= 120
-                  })) {
-                    noteCount = noteCount + groupSize - idxInGroup
+                  }) {}else {
 
+                    noteCount = noteCount + groupSize - idxInGroup
                     destAngle = (groupIdx + 1) * quarterCircle
 
                     if(i > 15){
@@ -179,14 +188,9 @@ object NoteLoader {
                     if(i > 10){
                       occupied = occupied.tail
                     }
-                    var bord: Int = 100
-                    if (key._1 < 0 + bord) interX += 100
-                    if (key._1 > 1900 - bord) interX -= 100
-                    if (key._2 < 0 + bord) interY += 100
-                    if (key._2 > 1080 - bord) interY -= 100
 
-                    sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
-                    sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius)
+                    sx = cx + math.cos(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
+                    sy = cy + math.sin(Math.toRadians(destAngle)).toFloat * (OuterChartRadius + extraspace)
 
                     interX += (math.random().toFloat * laneOffset - laneOffset / 2)
                     interY += (math.random().toFloat * laneOffset - laneOffset / 2)
@@ -201,7 +205,7 @@ object NoteLoader {
                   }
                 }
                 currentgroup.addOne(key)
-                while(occupied.length >= math.min(20,maxOnScreen)){
+                while(occupied.length >= 20){
                   occupied = occupied.tail
                 }
 
@@ -217,7 +221,6 @@ object NoteLoader {
         }
       }
     }
-
     out.result().sortBy(_.startMs)
   }
 
@@ -284,7 +287,10 @@ class NoteEntity(n: Note, colour: Color) {
 class GameplayScreen(app: RhythmGame,
                      user : String,
                      token: String,
-                     path : String) extends Screen2d {
+                     path : String,
+                     difficulty : Int,
+                     selectedChannel: Int) extends Screen2d {
+
 
   // timings
   private val hitWindow      = 120      // "Good" ±ms
@@ -307,6 +313,9 @@ class GameplayScreen(app: RhythmGame,
   private var t0: Long = 0L
   private var sfx:Sound = _
   private var comboUp:Sound = _
+  private var midiSeq: Sequencer = _
+
+
 
 
 
@@ -332,15 +341,21 @@ class GameplayScreen(app: RhythmGame,
     comboUp  = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
     val midiPath = s"data/tmp/$path"
-    upcoming = NoteLoader.load(midiPath, cx, cy, 4)
+    val seq = MidiSystem.getSequence(new java.io.File(midiPath))
 
-    music = Gdx.audio.newMusic(Gdx.files.internal("data/Miku.mp3"))
 
-    val seq = MidiSystem.getSequencer(); seq.open()
-    seq.setSequence(Gdx.files.internal(midiPath).read())
-    val synth = MidiSystem.getSynthesizer; synth.open()
+    upcoming = NoteLoader.load(midiPath, cx, cy, difficulty,selectedChannel)
+
+
+
+    midiSeq = MidiSystem.getSequencer()
+    midiSeq.open()
+    midiSeq.setSequence(Gdx.files.internal(midiPath).read())
+    val synth = MidiSystem.getSynthesizer
+    synth.open()
     for (ch <- synth.getChannels if ch != null) ch.controlChange(7, 127)
-    seq.start()
+    midiSeq.start()
+
 
     t0 = System.currentTimeMillis()
   }
@@ -413,27 +428,32 @@ class GameplayScreen(app: RhythmGame,
     }
     live --= justMissed
 
-    // ─── prune old feedbacks ───
     feedbacks.filterInPlace(f => now - f.born < 800)
 
-    // ─── periodic debug log ───
     if (frame % LOG_EVERY_N_FRAMES == 0)
       println(
         s"[Frame $frame] now=$now live=${live.size} queue=${upcoming.size} score=$score"
       )
 
     if (Seq(Input.Keys.W, Input.Keys.A, Input.Keys.S, Input.Keys.D).exists(Gdx.input.isKeyJustPressed)) {
-      sfx.play( 0.1f)
+      sfx.play()
     }
 
     if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
       postScore(token, path, score)
       println(s"[Gameplay] Score posted: $score")
-      //mute the midi
-      Option(music).foreach(_.stop())
-      app.switchScreen(new MainMenuScreen(app))
 
+      Option(music).foreach(_.stop())
+
+      if (midiSeq != null && midiSeq.isOpen) {
+        midiSeq.stop()
+        midiSeq.close()
+      }
+
+      app.switchScreen(new MainMenuScreen(app))
     }
+
+
 
     // ─── rendering ───
     g.clear(Color.DARK_GRAY)
@@ -458,6 +478,9 @@ class GameplayScreen(app: RhythmGame,
 
   }
 
+
+
+
   def postScore(str: String, str1: String, i: Int): Boolean = {
     val json = s"""{"song": "$str1", "score": $i}"""
     val url = new URL(s"$baseUrl/score")
@@ -479,5 +502,14 @@ class GameplayScreen(app: RhythmGame,
     Option(music).foreach(_.dispose())
     Option(sfx).foreach(_.dispose())
     Option(comboUp).foreach(_.dispose())
+
+    if (midiSeq != null && midiSeq.isOpen) {
+      midiSeq.stop()
+      midiSeq.close()
+    }
   }
+
+
 }
+
+

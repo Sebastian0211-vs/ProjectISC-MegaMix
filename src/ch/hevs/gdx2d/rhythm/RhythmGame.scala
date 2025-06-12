@@ -16,6 +16,7 @@ class RhythmGame extends PortableApplication(1920, 1080) {
   }
 
   override def onInit(): Unit = {
+    Session.load()
     Assets.init()
     switchScreen(new MainMenuScreen(this))
   }
