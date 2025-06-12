@@ -197,6 +197,11 @@ object NoteLoader {
                     if (i == 29) println("failed finding a spot"+occupied)
                   }
                 }
+
+                while(destX < 0) destX += 30
+                while(destX > 1080) destX -= 30
+
+
                 currentgroup.addOne(key)
                 while(occupied.length >= 20){
                   occupied = occupied.tail
