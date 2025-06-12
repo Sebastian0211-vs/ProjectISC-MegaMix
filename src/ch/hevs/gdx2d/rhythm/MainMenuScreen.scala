@@ -1,7 +1,7 @@
 package ch.hevs.gdx2d.rhythm
 
 import ch.hevs.gdx2d.components.bitmaps.BitmapImage
-import com.badlogic.gdx.{Gdx, Input}
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.{Actor, InputEvent, Stage}
 import com.badlogic.gdx.scenes.scene2d.ui._
@@ -184,21 +184,19 @@ class MainMenuScreen(private val app: RhythmGame) extends Screen2d {
   private def startGame(): Unit = {
     val tok        = Session.token.getOrElse(return)
     val song       = Option(songsBox.getSelected).getOrElse(return)
-    val user       = username.getText
     val difficulty = difficultyBox.getSelected.charAt(0).asDigit
 
-    // fix: channel must be returned
     val channel: Int = Option(instrumentBox.getSelected).flatMap { sel =>
       sel.split(":", 2).headOption.flatMap { head =>
         head.stripPrefix("Ch").toIntOption
       }
     }.getOrElse(0)
 
-    // fix: balance parentheses
+
     Future(downloadMidi(song)).foreach { _ =>
       Gdx.app.postRunnable(() =>
         app.switchScreen(
-          new GameplayScreen(app, user, tok, song, difficulty, channel)
+          new GameplayScreen(app, tok, song, difficulty, channel)
         )
       )
     }

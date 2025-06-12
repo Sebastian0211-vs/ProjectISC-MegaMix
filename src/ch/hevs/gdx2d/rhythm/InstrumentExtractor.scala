@@ -1,6 +1,6 @@
 package ch.hevs.gdx2d.rhythm
 
-import javax.sound.midi.{MetaMessage, MidiEvent, Sequence, ShortMessage}
+import javax.sound.midi.{MetaMessage, Sequence, ShortMessage}
 import scala.collection.mutable
 
 object InstrumentExtractor {
@@ -14,7 +14,7 @@ object InstrumentExtractor {
 
   // GM1 melodic instrument names (0-127)
   private val gmMelodicNames: Array[String] = Array(
-    // ... same 128 entries as before ...
+
     "Acoustic Grand Piano", "Bright Piano", "Electric Grand", "Honky-Tonk", "Electric Piano 1", "Electric Piano 2",
     "Harpsichord", "Clavinet", "Celesta", "Glockenspiel", "Music Box", "Vibraphone", "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
     "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ", "Reed Organ", "Accordion", "Harmonica", "Tango Accordion",
@@ -33,11 +33,9 @@ object InstrumentExtractor {
     "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet", "Telephone Ring", "Helicopter", "Applause", "Gunshot"
   )
 
-  // GM percussion map for channel 9 (10 in spec)
   private val percussionMap: Map[Int, String] = Map(
     35 -> "Acoustic Bass Drum", 36 -> "Bass Drum 1", 38 -> "Acoustic Snare",
     40 -> "Electric Snare", 42 -> "Closed Hi-Hat", 46 -> "Open Hi-Hat",
-    // Add additional key->drum mappings here
   )
 
   def extractInstruments(seq: Sequence): Seq[InstrumentChoice] = {
@@ -70,15 +68,15 @@ object InstrumentExtractor {
             }
           case mm: MetaMessage if mm.getType == 0x04 =>
             val name = new String(mm.getData, "UTF-8").trim
-            // If there are per-channel meta names, you'd parse channel info; assuming channel 0
+
             metaNames(0) = name
-          case _ => // ignore other message types
+          case _ =>
         }
       }
     }
 
-    // Build a choice per channel (except channel 9 melodic entries)
-    (0 until seq.getTracks.length).flatMap { _ => Nil } // placeholder, we want channels found
+
+    seq.getTracks.indices.flatMap { _ => Nil }
 
     val channels = (programs.keys ++ percussionNotes.keys).toSet
     channels.toSeq.sorted.map { ch =>
@@ -91,7 +89,7 @@ object InstrumentExtractor {
         val prg = programs(ch)
         val msb = bankMsb(ch)
         val lsb = bankLsb(ch)
-        // choose name from meta override if any
+
         val name = metaNames.getOrElse(ch, resolveName(prg, msb, lsb))
         InstrumentChoice(ch, prg, msb, lsb, name)
       }
@@ -99,11 +97,11 @@ object InstrumentExtractor {
   }
 
   private def resolveName(prg: Int, msb: Int, lsb: Int): String = {
-    // For GM1 default bank
+
     if (msb == 0 && lsb == 0) {
       gmMelodicNames.lift(prg).getOrElse(s"Program $prg")
     } else {
-      // Banked instrument: you would look up in a GM2/GS/XG table
+
       s"Bank($msb,$lsb) Prog $prg"
     }
   }

@@ -7,12 +7,12 @@ object Session {
   var token: Option[String] = None
   private val path = Paths.get("data/session.txt")
 
-  def save(): Unit = {
-    token.foreach { t =>
-      Files.createDirectories(path.getParent)
-      Files.write(path, t.getBytes(StandardCharsets.UTF_8))
-    }
-  }
+//  def save(): Unit = {
+//    token.foreach { t =>
+//      Files.createDirectories(path.getParent)
+//      Files.write(path, t.getBytes(StandardCharsets.UTF_8))
+//    }
+//  }
 
   def load(): Unit = {
     if (Files.exists(path)) {

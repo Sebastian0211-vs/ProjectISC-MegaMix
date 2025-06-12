@@ -1,19 +1,14 @@
 package ch.hevs.gdx2d.rhythm
 import ch.hevs.gdx2d.components.bitmaps.BitmapImage
-import ch.hevs.gdx2d.desktop.PortableApplication
-import ch.hevs.gdx2d.rhythm.RhythmApi.baseUrl
+import ch.hevs.gdx2d.rhythm.RhythmApi.postScore
 import ch.hevs.gdx2d.lib.GdxGraphics
-import ch.hevs.gdx2d.rhythm.InstrumentExtractor.extractInstruments
-
 import com.badlogic.gdx.{Gdx, Input}
 import com.badlogic.gdx.audio.{Music, Sound}
 import com.badlogic.gdx.graphics.Color
-
-import java.net.{HttpURLConnection, URL}
 import javax.sound.midi._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Using
+
 
 
 object Assets {
@@ -55,15 +50,14 @@ case class Feedback(x: Float, y: Float, kind: String, born: Long)
  *  -------------------------------------------------------------------------*/
 object NoteLoader {
   private val DefaultTPQ  = 480
-  val OuterChartRadius: Float  = 1000f
-  val ChartRadius: Float = 150 // spawn radius
-  var secondRadius: Float = 280 // second chance radius
+  private val OuterChartRadius: Float  = 1000f
+  private val ChartRadius: Float = 150 // spawn radius
+  private val secondRadius: Float = 280 // second chance radius
 
-  var extraspace: Int = 0
+  private var extraspace: Int = 0
 
-  var occupied:ArrayBuffer[(Float, Float)] = new ArrayBuffer[(Float, Float)]
+  private var occupied:ArrayBuffer[(Float, Float)] = new ArrayBuffer[(Float, Float)]
   private val displayMs          = 1200L   // note lifetime on screen
-  private val DrumChannel        = 9
 
   def load(midiPath: String,
            cx: Float, cy: Float,
@@ -116,9 +110,8 @@ object NoteLoader {
     var interX = cx + math.cos(Math.toRadians(0)).toFloat * secondRadius
     var interY = cy + math.sin(Math.toRadians(0)).toFloat * secondRadius
 
-    var currentgroup: ArrayBuffer[(Float,Float)] = new ArrayBuffer[(Float,Float)]
+    val currentgroup: ArrayBuffer[(Float, Float)] = new ArrayBuffer[(Float, Float)]
 
-    var numnotes: Int = 0
     seq.getTracks.foreach { trk =>
       for (i <- 0 until trk.size()) {
         trk.get(i).getMessage match {
@@ -278,14 +271,11 @@ class NoteEntity(n: Note, colour: Color) {
     }
     g.drawTransformedPicture(n.destX, n.destY, arrowAngle, 0.2f, Assets.ArrowBitmap)
 
-  val lane: Int   = n.lane
-  val hitTime: Long = n.startMs
-}}
+  }}
 
 
 
 class GameplayScreen(app: RhythmGame,
-                     user : String,
                      token: String,
                      path : String,
                      difficulty : Int,
@@ -309,16 +299,11 @@ class GameplayScreen(app: RhythmGame,
 
   private var cx = 0f; private var cy = 0f
   private var frame = 0
-  // wall-clock zero for manual timing fallback
+
   private var t0: Long = 0L
   private var sfx:Sound = _
   private var comboUp:Sound = _
   private var midiSeq: Sequencer = _
-
-
-
-
-
 
   // ----------------------------------------------------------------------
 
@@ -341,13 +326,7 @@ class GameplayScreen(app: RhythmGame,
     comboUp  = Gdx.audio.newSound(Gdx.files.internal("data/Assets/sfx/comboUp.wav"))
 
     val midiPath = s"data/tmp/$path"
-    val seq = MidiSystem.getSequence(new java.io.File(midiPath))
-
-
     upcoming = NoteLoader.load(midiPath, cx, cy, difficulty,selectedChannel)
-
-
-
     midiSeq = MidiSystem.getSequencer()
     midiSeq.open()
     midiSeq.setSequence(Gdx.files.internal(midiPath).read())
@@ -436,7 +415,7 @@ class GameplayScreen(app: RhythmGame,
       )
 
     if (Seq(Input.Keys.W, Input.Keys.A, Input.Keys.S, Input.Keys.D).exists(Gdx.input.isKeyJustPressed)) {
-      sfx.play()
+      sfx.play(0.1f)
     }
 
     if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
@@ -449,11 +428,8 @@ class GameplayScreen(app: RhythmGame,
         midiSeq.stop()
         midiSeq.close()
       }
-
       app.switchScreen(new MainMenuScreen(app))
     }
-
-
 
     // ─── rendering ───
     g.clear(Color.DARK_GRAY)
@@ -472,30 +448,7 @@ class GameplayScreen(app: RhythmGame,
     g.drawString(20, Gdx.graphics.getHeight - 40, s"Active notes: ${live.size}")
     g.drawString(20, Gdx.graphics.getHeight - 80, s"Score: $score")
     g.drawString(20, Gdx.graphics.getHeight - 120, s"Combo: x$combo ; Counter: $combocounter")
-
     g.drawFPS()
-
-
-  }
-
-
-
-
-  def postScore(str: String, str1: String, i: Int): Boolean = {
-    val json = s"""{"song": "$str1", "score": $i}"""
-    val url = new URL(s"$baseUrl/score")
-    val conn = url.openConnection().asInstanceOf[HttpURLConnection]
-    conn.setRequestMethod("POST")
-    conn.setRequestProperty("Content-Type", "application/json")
-    conn.setRequestProperty("Authorization", s"$str")
-    conn.setDoOutput(true)
-
-    Using.resource(conn.getOutputStream) { os =>
-      os.write(json.getBytes("UTF-8"))
-    }
-
-    val responseCode = conn.getResponseCode
-    responseCode == 200
   }
 
   override def dispose(): Unit = {
@@ -508,8 +461,6 @@ class GameplayScreen(app: RhythmGame,
       midiSeq.close()
     }
   }
-
-
 }
 
 

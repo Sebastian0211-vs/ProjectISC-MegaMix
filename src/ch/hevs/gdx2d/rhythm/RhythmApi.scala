@@ -5,7 +5,7 @@ import scala.io.Source
 import scala.util.Using
 
 object RhythmApi {
-  val baseUrl = "https://midis.triceratops.ch"
+  private val baseUrl = "https://midis.triceratops.ch"
 
   def main(args: Array[String]): Unit = {
     val username = "sebas"
@@ -62,7 +62,7 @@ object RhythmApi {
     tokenRegex.findFirstMatchIn(response).map(_.group(1))
   }
 
-  def postScore(str: String, str1: String, i: Int) = {
+  def postScore(str: String, str1: String, i: Int): Boolean = {
     val json = s"""{"song": "$str1", "score": $i}"""
     val url = new URL(s"$baseUrl/score")
     val conn = url.openConnection().asInstanceOf[HttpURLConnection]
@@ -79,7 +79,7 @@ object RhythmApi {
     responseCode == 200
   }
 
-  def fetchLeaderboard(song: String): Unit = {
+  private def fetchLeaderboard(song: String): Unit = {
     val encoded = URLEncoder.encode(song, "UTF-8")
     val url = new URL(s"$baseUrl/leaderboard?song=$encoded")
     val response = Using.resource(url.openStream()) {
