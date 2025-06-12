@@ -198,8 +198,8 @@ object NoteLoader {
                   }
                 }
 
-                while(destX < 0) destX += 30
-                while(destX > 1080) destX -= 30
+                while(destY < 50) destY += 30
+                while(destY > 1030) destY -= 30
 
 
                 currentgroup.addOne(key)
