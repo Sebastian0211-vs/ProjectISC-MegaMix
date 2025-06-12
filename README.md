@@ -46,13 +46,15 @@
 | **S**  | 3 (bas)    | Rouge ❤️ |
 | **D**  | 0 (droite) | Bleu 💙  |
 
+![Alt Text](https://media.tenor.com/HvJ48-NOlfIAAAAi/teto-tetoris.gif)
+
 Le timing est roi :
 
 | Feedback | Fenêtre | Score       |
 | -------- | ------- | ----------- |
 | Perfect  | ±50 ms  | 300×combo   |
 | Good     | ±120 ms | 100×combo   |
-| Miss     | >120 ms | Combo reset |
+| Miss     | >120 ms | Combo reset | 
 
 ---
 
