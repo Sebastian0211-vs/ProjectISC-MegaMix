@@ -91,7 +91,7 @@ libraryDependencies ++= Seq(
 
 ## Licence
 
-MIT
+Apache License 2.0
 
 ---
 
