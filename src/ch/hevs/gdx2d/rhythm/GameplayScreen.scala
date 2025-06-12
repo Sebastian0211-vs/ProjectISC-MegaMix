@@ -4,7 +4,7 @@ import ch.hevs.gdx2d.desktop.PortableApplication
 import ch.hevs.gdx2d.rhythm.RhythmApi.baseUrl
 import ch.hevs.gdx2d.lib.GdxGraphics
 import ch.hevs.gdx2d.rhythm.InstrumentExtractor.extractInstruments
-import ch.hevs.gdx2d.rhythm.guessLead.guessLeadInstrument
+
 import com.badlogic.gdx.{Gdx, Input}
 import com.badlogic.gdx.audio.{Music, Sound}
 import com.badlogic.gdx.graphics.Color
