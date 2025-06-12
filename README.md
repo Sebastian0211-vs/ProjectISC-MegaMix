@@ -23,12 +23,10 @@
 
 |                       |                                          |
 | --------------------- | ---------------------------------------- |
-| 🎹 **4 lanes**        | **W A S D** (rebindable)                 |
+| 🎹 **4 lanes**        | **W A S D**                              |
 | ⬇️ **Auto‑DL**        | Midi files depuis `midis.triceratops.ch` |
-| 🏆 **Leaderboard**    | Auth JWT maison + scoring serveur        |
-| 🔄 **Cross‑platform** | Windows • macOS • Linux (JVM 8+)         |
-| 🖼️ **Skins**         | Thèmes CSS‑like via JSON                 |
-| 🕹️ **Manettes**      | XInput & SDL2 (                          |
+| 🏆 **Leaderboard**    | scoring serveur                          |
+
 
 <details>
 <summary>Screenshot & GIF demo</summary>
@@ -78,7 +76,7 @@ graph TD
 * **gdx2d** : rendu 2D + portable window.
 * **RhythmApi** : POST /register, /login, /score; GET /list, /leaderboard.
 * **NoteLoader** : convertit ticks MIDI → positions circulaires « bullet‑hell ».
-* **guessLeadInstrument** + **InstrumentExtractor** : auto‑détection du canal solo.
+* **InstrumentExtractor** : Choix de l'instrument à l'utilisateur
 
 ---`
 
