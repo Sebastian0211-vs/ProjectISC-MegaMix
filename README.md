@@ -31,7 +31,7 @@
 <details>
 <summary>Screenshot & GIF demo</summary>
 
-*(Insère ici un GIF ou un screenshot `data/Assets/BackGround/background.png`)*
+![Alt Text](data/images/RushE.gif)
 
 </details>
 
