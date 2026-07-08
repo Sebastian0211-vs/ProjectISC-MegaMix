@@ -1,0 +1,36 @@
+{
+  "iscVersion": 1,
+  "title": "MegaMix",
+  "shortDescription": "A 4-lane rhythm game where you play MIDI songs, compete on leaderboards, and test your timing.",
+  "description": "MegaMix is a rhythm game inspired by titles like DDR and osu!. Download MIDI songs, choose an instrument track, and hit notes with precise timing to build combos and achieve high scores.\n\nFeatures online leaderboards, automatic song downloads, multiple instrument selection, and fast-paced 4-lane gameplay.\n\nMade for the ISC 1st-year course at HES-SO Valais.",
+  "version": "1.0.0",
+  "authors": [
+    "Sebastian Morsch"
+  ],
+  "tags": [
+    "rhythm",
+    "music",
+    "2d",
+    "arcade",
+    "keyboard"
+  ],
+  "cover": "src/res/Banner.png",
+  "screenshots": [
+    "src/res/Screenshots/Screenshot1.png",
+    "src/res/Screenshots/Screenshot2.png",
+    "src/res/Screenshots/Screenshot3.png",
+    "src/res/Screenshots/Screenshot4.png",
+    "src/res/Screenshots/Screenshot5.png",
+    "src/res/Screenshots/Screenshot6.png"
+  ],
+  "scalaVersion": "2.13",
+  "mainClass": "Main",
+  "sources": [
+    "src"
+  ],
+  "resources": [
+    "src/res"
+  ],
+  "controls": "W A S D hit notes · Esc back",
+  "year": 2025
+}
