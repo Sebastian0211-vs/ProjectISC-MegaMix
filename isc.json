@@ -32,5 +32,6 @@
     "src/res"
   ],
   "controls": "W A S D hit notes · Esc back",
-  "year": 2025
+  "year": 2025,
+  "mainClass": "ch.hevs.gdx2d.rhythm.Launcher",
 }
